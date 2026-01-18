@@ -111,6 +111,9 @@ A resource group is a container that holds related Azure resources.
 
 **Best Practice:** Use consistent naming conventions. Example: `rg-[project]-[environment]-[region]`
 
+<img width="1654" height="883" alt="image" src="https://github.com/user-attachments/assets/65912539-04b2-4976-8785-86d2e7a19dbe" />
+
+
 ---
 
 ### Step 2: Create a Virtual Network
