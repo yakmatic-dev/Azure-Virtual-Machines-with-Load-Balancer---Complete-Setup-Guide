@@ -126,10 +126,10 @@ A resource group is a container that holds related Azure resources.
    - **Name:** `vnet-loadbalancer`
    - **Region:** Same as resource group (e.g., East US)
 4. **IP Addresses tab:**
-   - **IPv4 address space:** `10.0.0.0/16`
+   - **IPv4 address space:** `10.31.0.0/24`
    - Click **"+ Add subnet"**
      - **Subnet name:** `subnet-vms`
-     - **Subnet address range:** `10.0.1.0/24`
+     - **Subnet address range:** `10.31.1.0/24`
    - Click **"Add"**
 5. **Security tab:** (optional, can configure later)
    - Leave defaults for now
@@ -142,6 +142,7 @@ A resource group is a container that holds related Azure resources.
 - Plan for future growth when sizing subnets
 
 ---
+<img width="1415" height="611" alt="image" src="https://github.com/user-attachments/assets/31585b9e-1f2b-49c2-aafa-f9ee4e8b1989" />
 
 ### Step 3: Create an Availability Set (Recommended)
 
