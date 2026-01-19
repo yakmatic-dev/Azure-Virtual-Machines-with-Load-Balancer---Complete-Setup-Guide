@@ -165,6 +165,7 @@ Availability Sets ensure VMs are distributed across multiple fault domains and u
 - Provides 99.95% SLA (vs 99.9% for single VM)
 
 ---
+<img width="1235" height="618" alt="image" src="https://github.com/user-attachments/assets/b836045b-5212-401b-84fe-9f9eb698cdba" />
 
 ### Step 4: Create Virtual Machine 1
 
