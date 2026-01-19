@@ -227,9 +227,76 @@ Repeat Step 4 with these changes:
 - **Public IP:** Create new > Name: `pip-vm-web-02`
 
 **All other settings remain the same**
+<img width="1191" height="622" alt="image" src="https://github.com/user-attachments/assets/4816c23f-500d-41b2-aaec-6f24db40945d" />
 
 ---
+Step 6: Deploy Your Application Using a CI/CD Pipeline
+Instead of manually installing and configuring the web server on each VM, we will automate application deployment using a CI/CD pipeline. This ensures consistency, faster deployments, and reduced human error.
+High-Level Flow
 
+Developer pushes code to the repository
+CI/CD pipeline is triggered
+Pipeline connects to VM1 and VM2
+Application and web server configuration are deployed automatically
+Application becomes available behind the Load Balancer
+
+Prerequisites
+
+VM1 and VM2 are reachable over SSH
+SSH private key is securely stored in the CI/CD tool (e.g., GitHub Actions Secrets, Azure DevOps Library)
+Load Balancer is already configured
+Source code repository is set up
+
+Example: GitHub Actions CI/CD Pipeline
+Create a file named .github/workflows/deploy.yml in your repository:
+yamlname: Deploy Application to Azure VMs
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to VM1
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM1_PUBLIC_IP }}
+          username: azureuser
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sudo apt update
+            sudo apt install nginx -y
+            echo "<h1>Deployed via CI/CD - VM1</h1>" | sudo tee /var/www/html/index.html
+            sudo systemctl restart nginx
+
+      - name: Deploy to VM2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM2_PUBLIC_IP }}
+          username: azureuser
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sudo apt update
+            sudo apt install nginx -y
+            echo "<h1>Deployed via CI/CD - VM2</h1>" | sudo tee /var/www/html/index.html
+            sudo systemctl restart nginx
+Setting Up GitHub Secrets
+
+Navigate to your repository on GitHub
+Go to Settings > Secrets and variables > Actions
+Click New repository secret
+Add the following secrets:
+
+VM1_PUBLIC_IP: Public IP address of VM1
+VM2_PUBLIC_IP: Public IP address of VM2
+SSH_PRIVATE_KEY: Your SSH private key content
 ### Step 6: Install Web Server on Both VMs
 
 #### Connect to VM1:
