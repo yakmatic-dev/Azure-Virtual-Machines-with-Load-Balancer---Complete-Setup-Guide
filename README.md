@@ -213,6 +213,8 @@ Availability Sets ensure VMs are distributed across multiple fault domains and u
 
 **Wait for deployment to complete** (2-3 minutes)
 
+<img width="1237" height="625" alt="image" src="https://github.com/user-attachments/assets/c0ae3858-6c86-4e75-a9bd-304247d9cfaf" />
+
 ---
 
 ### Step 5: Create Virtual Machine 2
