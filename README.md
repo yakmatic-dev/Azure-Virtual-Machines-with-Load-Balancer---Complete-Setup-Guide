@@ -251,42 +251,172 @@ Example: GitHub Actions CI/CD Pipeline
 Create a file named .github/workflows/deploy.yml in your repository:
 yamlname: Deploy Application to Azure VMs
 
+name: Build and Deploy App to Azure VMs
+
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '24'
+  APP_NAME: 'ts-app'
+  APP_PORT: 4200
+  REPO_PATH: 'app'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        vm:
+          - name: VM1
+            host_secret: VM1_PUBLIC_IP
+            username_secret: VM1_USERNAME
+            key_secret: VM1_SSH_PRIVATE_KEY
+          - name: VM2
+            host_secret: VM2_PUBLIC_IP
+            username_secret: VM2_USERNAME
+            key_secret: VM2_SSH_PRIVATE_KEY
+      fail-fast: false
+      max-parallel: 2
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to VM1
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Copy code to ${{ matrix.vm.name }}
+        uses: appleboy/scp-action@v0.1.7
         with:
-          host: ${{ secrets.VM1_PUBLIC_IP }}
-          username: azureuser
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            sudo apt update
-            sudo apt install nginx -y
-            echo "<h1>Deployed via CI/CD - VM1</h1>" | sudo tee /var/www/html/index.html
-            sudo systemctl restart nginx
+          host: ${{ secrets[matrix.vm.host_secret] }}
+          username: ${{ secrets[matrix.vm.username_secret] }}
+          key: ${{ secrets[matrix.vm.key_secret] }}
+          source: "."
+          target: ${{ env.REPO_PATH }}
+          rm: true
+          overwrite: true
 
-      - name: Deploy to VM2
+      - name: Build and Deploy on ${{ matrix.vm.name }}
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.VM2_PUBLIC_IP }}
-          username: azureuser
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets[matrix.vm.host_secret] }}
+          username: ${{ secrets[matrix.vm.username_secret] }}
+          key: ${{ secrets[matrix.vm.key_secret] }}
+          command_timeout: 20m
           script: |
-            sudo apt update
-            sudo apt install nginx -y
-            echo "<h1>Deployed via CI/CD - VM2</h1>" | sudo tee /var/www/html/index.html
-            sudo systemctl restart nginx
+            set -e
+            
+            echo "=========================================="
+            echo "🚀 Starting deployment on ${{ matrix.vm.name }}"
+            echo "=========================================="
+            
+            # Navigate to app directory
+            cd ~/${{ env.REPO_PATH }}
+            
+            echo "📁 Files copied successfully"
+            ls -la
+            pwd
+          
+            
+            # Install Node.js dependencies
+            echo ""
+            echo "📥 Installing dependencies..."
+            npm install
+            npm run build
+            
+            # Stop existing PM2 process
+            echo ""
+            echo "🛑 Stopping existing application..."
+            pm2 stop ${{ env.APP_NAME }} 2>/dev/null || true
+            pm2 delete ${{ env.APP_NAME }} 2>/dev/null || true
+            
+            # Start application with PM2
+            echo ""
+            echo "▶️  Starting Angular application..."
+            pm2 start npm \
+              --name ${{ env.APP_NAME }} \
+              --interpreter none \
+              -- run start -- --host 0.0.0.0
+            
+            # Save PM2 configuration
+            pm2 save --force
+            
+            # Setup PM2 to start on system boot (only runs once)
+            pm2 startup systemd -u ${{ secrets[matrix.vm.username_secret] }} --hp /home/${{ secrets[matrix.vm.username_secret] }} 2>/dev/null || true
+            
+            # Wait for application to start
+            echo ""
+            echo "⏳ Waiting for Angular to compile..."
+            sleep 20
+            
+            # Check application status
+            echo ""
+            echo "=========================================="
+            echo "📊 Application Status"
+            echo "=========================================="
+            pm2 status ${{ env.APP_NAME }}
+            
+            # Show recent logs
+            echo ""
+            echo "=========================================="
+            echo "📝 Recent Logs (last 25 lines)"
+            echo "=========================================="
+            pm2 logs ${{ env.APP_NAME }} --lines 25 --nostream
+            
+            # Verify application is running
+            if pm2 status ${{ env.APP_NAME }} | grep -q "online"; then
+              echo ""
+              echo "=========================================="
+              echo "✅ Deployment successful on ${{ matrix.vm.name }}"
+              echo "=========================================="
+            else
+              echo ""
+              echo "=========================================="
+              echo "❌ Deployment failed on ${{ matrix.vm.name }}"
+              echo "=========================================="
+              exit 1
+            fi
+
+      - name: Health check on ${{ matrix.vm.name }}
+        if: success()
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets[matrix.vm.host_secret] }}
+          username: ${{ secrets[matrix.vm.username_secret] }}
+          key: ${{ secrets[matrix.vm.key_secret] }}
+          script: |
+            # Wait for application to be fully ready
+            sleep 5
+            
+            # Test if Angular dev server is responding
+            if curl -f -s --max-time 10 http://localhost:${{ env.APP_PORT }} > /dev/null 2>&1; then
+              echo "✅ Health check passed - Application is responding on port ${{ env.APP_PORT }}"
+            else
+              echo "⚠️  Application not responding on port ${{ env.APP_PORT }} yet (may still be compiling)"
+            fi
+            
+            # Show final PM2 status
+            pm2 status ${{ env.APP_NAME }}
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "=========================================="
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "✅ Deployment completed successfully on all VMs"
+            echo "Commit: ${{ github.sha }}"
+            echo "Branch: ${{ github.ref_name }}"
+            echo "=========================================="
+          else
+            echo "❌ Deployment failed or partially completed"
+            echo "=========================================="
+            exit 1
+          fi
 Setting Up GitHub Secrets
 
 Navigate to your repository on GitHub
