@@ -442,47 +442,28 @@ ssh -i ~/Downloads/vm-web-keypair.pem azureuser@<VM1-PUBLIC-IP>
 ssh -i C:\Users\YourName\Downloads\vm-web-keypair.pem azureuser@<VM1-PUBLIC-IP>
 ```
 
-#### Install Nginx on VM1:
-```bash
-# Update package list
-sudo apt update
+#### Verify the app is running on both VM:
 
-# Install Nginx
-sudo apt install nginx -y
+<img width="1560" height="680" alt="image" src="https://github.com/user-attachments/assets/cfc3d6e9-1789-41f5-ba1c-7de4763a9be7" />
 
-# Create custom index page
-echo "<h1>Hello from VM1 - $(hostname)</h1>" | sudo tee /var/www/html/index.html
-
-# Verify Nginx is running
-sudo systemctl status nginx
-
-# Exit the VM
-exit
-```
 
 #### Repeat for VM2:
-```bash
+
 # Connect to VM2
 ssh -i ~/Downloads/vm-web-keypair.pem azureuser@<VM2-PUBLIC-IP>
 
-# Update and install
-sudo apt update
-sudo apt install nginx -y
+<img width="988" height="141" alt="image" src="https://github.com/user-attachments/assets/42d0f1dd-117f-4602-a72b-8376ccedd236" />
 
-# Create custom index page with different message
-echo "<h1>Hello from VM2 - $(hostname)</h1>" | sudo tee /var/www/html/index.html
 
-# Verify
-sudo systemctl status nginx
-exit
-```
+
 
 #### Test Individual VMs:
 Open a browser and navigate to:
-- `http://<VM1-PUBLIC-IP>` - Should show "Hello from VM1"
-- `http://<VM2-PUBLIC-IP>` - Should show "Hello from VM2"
+- `http://<VM1-PUBLIC-IP>:port` - 
+- `http://<VM2-PUBLIC-IP>` :port-" see the app running"
 
 ---
+<img width="1909" height="911" alt="image" src="https://github.com/user-attachments/assets/886e038f-cd36-4fa2-8348-2bf678967b26" />
 
 ### Step 7: Create Azure Load Balancer
 
@@ -532,6 +513,8 @@ Open a browser and navigate to:
 **Wait for deployment** (1-2 minutes)
 
 ---
+<img width="1223" height="625" alt="image" src="https://github.com/user-attachments/assets/d94e9fe6-6fdf-4a00-8c50-331e868c74fc" />
+
 
 ### Step 8: Configure Health Probe
 
@@ -541,7 +524,7 @@ Open a browser and navigate to:
 4. Fill in:
    - **Name:** `health-probe-http`
    - **Protocol:** HTTP
-   - **Port:** 80
+   - **Port:** 4200
    - **Path:** `/`
    - **Interval:** 5 seconds
    - **Unhealthy threshold:** 2 consecutive failures
@@ -553,6 +536,8 @@ Open a browser and navigate to:
 - Unhealthy VMs are removed from rotation automatically
 
 ---
+<img width="1692" height="701" alt="image" src="https://github.com/user-attachments/assets/c82b6487-c441-412a-b5b4-cf523c8954d3" />
+
 
 ### Step 9: Create Load Balancing Rule
 
@@ -565,7 +550,7 @@ Open a browser and navigate to:
    - **Backend pool:** `backend-pool-webservers`
    - **Protocol:** TCP
    - **Port:** 80
-   - **Backend port:** 80
+   - **Backend port:** 4200
    - **Health probe:** `health-probe-http`
    - **Session persistence:** None
    - **Idle timeout (minutes):** 4
@@ -580,6 +565,10 @@ Open a browser and navigate to:
 - **Client IP and protocol:** Same client+protocol goes to same VM
 
 ---
+<img width="1542" height="895" alt="image" src="https://github.com/user-attachments/assets/bdfb510c-2340-4f2f-b21f-c22754553da3" />
+
+<img width="1916" height="908" alt="image" src="https://github.com/user-attachments/assets/d02649a2-b9e0-4645-87da-be3075f6ee9d" />
+
 
 ### Step 10: Update Network Security Groups
 
@@ -590,7 +579,7 @@ Remove direct access to VMs and only allow traffic through Load Balancer.
 2. Click **"Networking"** under Settings
 3. Click on the NSG name (e.g., `vm-web-01-nsg`)
 4. Under **Settings**, click **"Inbound security rules"**
-5. Find the HTTP rule (port 80)
+5. Find the  rule (port 4200)
 6. Click the **"..."** menu and **"Delete"** (we'll access via LB only)
 7. Keep SSH rule for management access
 
@@ -647,22 +636,20 @@ Second load: Hello from VM2 - vm-web-02
 Third load:  Hello from VM1 - vm-web-01
 ...
 ```
+<img width="1916" height="908" alt="image" src="https://github.com/user-attachments/assets/95eaaa93-7f8c-4edb-b253-446d30509651" />
 
 ### Test 2: Health Probe Functionality
 
 1. SSH into VM1
-2. Stop Nginx:
-   ```bash
-   sudo systemctl stop nginx
+2. Stop app:
+  
    ```
 3. Wait 10-15 seconds (2 health probe failures)
 4. Refresh the Load Balancer IP in browser
 5. You should ONLY see responses from VM2
 
-6. Start Nginx again:
-   ```bash
-   sudo systemctl start nginx
-   ```
+6. Start app again:
+  
 7. Wait 10 seconds
 8. VM1 should be back in rotation
 
@@ -710,13 +697,14 @@ ab -n 1000 -c 10 http://<LOAD-BALANCER-IP>/
 **Solutions:**
 ```bash
 # Check if VMs are responding locally
-curl localhost
+curl localhost:port
 
-# Check Nginx status
-sudo systemctl status nginx
+# Check app status
+pm2 status
+pm2 logs
 
-# Restart Nginx
-sudo systemctl restart nginx
+# Restart app
+pm2 restart
 
 # Check firewall
 sudo ufw status
@@ -724,7 +712,7 @@ sudo ufw status
 
 **In Azure Portal:**
 - Verify health probe shows VMs as healthy
-- Check NSG rules allow port 80
+- Check NSG rules allow port 4200
 - Verify backend pool has VMs added
 
 ### Issue: Always Seeing Same VM
@@ -746,11 +734,10 @@ sudo ufw status
 
 **Diagnostics:**
 ```bash
-# Check Nginx error logs
-sudo tail -f /var/log/nginx/error.log
+# Check app error logs
 
-# Check system logs
-sudo journalctl -u nginx -f
+pm2 logs
+
 
 # Test local connectivity
 curl -v http://localhost
@@ -846,163 +833,6 @@ Set up budget alerts:
    - Use Azure Application Gateway with WAF
    - Protects against OWASP Top 10 vulnerabilities
 
-### Access Control
-
-1. **Use Managed Identities:** For VM access to Azure resources
-2. **Enable Just-In-Time VM Access:** Through Azure Security Center
-3. **Implement RBAC:** Principle of least privilege
-4. **Enable MFA:** For all administrator accounts
-
-### Monitoring & Compliance
-
-1. **Enable Azure Security Center:**
-   - Free tier provides recommendations
-   - Standard tier adds threat protection
-
-2. **Configure Diagnostic Logs:**
-   - Load Balancer metrics and logs
-   - VM boot diagnostics
-   - NSG flow logs
-
-3. **Set Up Alerts:**
-   - VM availability
-   - High CPU/memory
-   - Failed health probes
-   - Unusual network activity
-
----
-
-## Maintenance and Monitoring
-
-### Regular Maintenance Tasks
-
-#### Weekly:
-- Review health probe status
-- Check VM performance metrics
-- Review security recommendations
-- Verify backup completion (if configured)
-
-#### Monthly:
-- Apply security patches to VMs
-- Review and optimize costs
-- Test disaster recovery procedures
-- Review and update NSG rules
-
-#### Quarterly:
-- Load test the application
-- Review and right-size VMs
-- Update documentation
-- Security audit
-
-### Monitoring Setup
-
-#### Create Alerts:
-
-1. **VM Availability Alert:**
-   - Metric: Percentage CPU
-   - Condition: Greater than 80%
-   - Evaluation: 5 minutes
-   - Action: Email admin
-
-2. **Health Probe Alert:**
-   - Metric: Health Probe Status
-   - Condition: Less than 100%
-   - Evaluation: 1 minute
-   - Action: Email + SMS
-
-3. **Cost Alert:**
-   - Budget: $150/month
-   - Alert at 80%, 90%, 100%
-
-#### Azure Monitor Workbook:
-
-Create custom dashboard tracking:
-- Request count per VM
-- Response time
-- Health status
-- Resource utilization
-- Cost trends
-
-### Backup Strategy
-
-1. **Enable Azure Backup for VMs:**
-   - Daily backups
-   - Retention: 30 days
-   - GRS replication for DR
-
-2. **Application-level backups:**
-   - Export configurations
-   - Document custom settings
-   - Version control for code/configs
-
----
-
-## Scaling Considerations
-
-### Horizontal Scaling (Add More VMs)
-
-When to scale out:
-- Consistent CPU > 70%
-- Response time increasing
-- Anticipating traffic spike
-
-**Steps:**
-1. Create new VM following Step 4
-2. Install application (Step 6)
-3. Add to backend pool
-4. Automatic load balancing begins
-
-### Vertical Scaling (Larger VMs)
-
-When to scale up:
-- Single-threaded bottlenecks
-- Memory constraints
-- I/O limitations
-
-**Steps:**
-1. Deallocate VM
-2. Resize to larger SKU
-3. Start VM
-4. Verify health probe passes
-
-### Auto-scaling (Advanced)
-
-Use VM Scale Sets for automatic scaling:
-- Scale based on metrics (CPU, requests)
-- Scheduled scaling
-- Automatic updates
-- Same load balancer integration
-
----
-
-## Advanced Configurations
-
-### Add HTTPS Support
-
-1. **Obtain SSL Certificate:**
-   - Let's Encrypt (free)
-   - Purchase from CA
-   - Use Azure Key Vault
-
-2. **Configure Nginx:**
-   ```nginx
-   server {
-       listen 80;
-       return 301 https://$host$request_uri;
-   }
-   
-   server {
-       listen 443 ssl;
-       ssl_certificate /etc/ssl/certs/cert.pem;
-       ssl_certificate_key /etc/ssl/private/key.pem;
-       # ... rest of config
-   }
-   ```
-
-3. **Update Load Balancer:**
-   - Add rule for port 443
-   - Update health probe if needed
-
 ### Multi-Region Deployment
 
 For global applications:
@@ -1075,23 +905,8 @@ If you want to keep some resources:
 - [Stack Overflow - Azure Tag](https://stackoverflow.com/questions/tagged/azure)
 
 ---
+## Project by 
 
-## Changelog
+Yakub Ilyas
+yakubiliyas12@gmail.com
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | 2026-01-18 | Initial documentation |
-
----
-
-## License
-
-This documentation is provided as-is for educational purposes.
-
-## Contributing
-
-Suggestions and improvements welcome! Please submit feedback through Azure Portal feedback or contact your Azure administrator.
-
----
-
-**Questions?** Review the troubleshooting section or consult Azure documentation linked above.
