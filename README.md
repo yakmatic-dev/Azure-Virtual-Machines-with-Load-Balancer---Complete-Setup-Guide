@@ -1,4 +1,3 @@
-# Azure-Virtual-Machines-with-Load-Balancer---Complete-Setup-Guide
 
 # Azure Virtual Machines with Load Balancer - Complete Setup Guide
 
